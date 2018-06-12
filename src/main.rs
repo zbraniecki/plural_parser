@@ -1,32 +1,34 @@
 #[macro_use]
 extern crate nom;
 
-use std::io;
+// use std::io;
 use std::fs::File;
 use std::io::prelude::*;
 
-use nom::{alphanumeric1, space, types::CompleteStr};
+// use nom::{alphanumeric1, space, types::CompleteStr};
+use nom::{types::CompleteStr};
 
-// named!(eat_until_rules(&str),
-// 	tag!("plurals-type-cardinal":)
-// );
+named!(eat_head<CompleteStr,CompleteStr>,
+	take_until_s!("supplemental\": {")
+);
 
-// named!(read_rules<CompleteStr,CompleteStr>,
-// 	ws!(
-// 		do_parse!(
-// 			head: eat_until_rules >>
-// 			(head)
-// 		)
+named!(read_rules<CompleteStr,CompleteStr>,
+	ws!(
+		do_parse!(
+			head: eat_head >>
+			(head)
+		)
 
-// 	)
-// );
+	)
+);
 
-fn get_rule(rule: String) -> String {
-	rule
-}
+// +---------- Old test code ----------+
+// fn get_rule(rule: String) -> String {
+// 	rule
+// }
 
 fn main() {
-	// Old test code
+	// +---------- Old test code ----------+
 	// let line = "Grammar Rule".to_string();
 	// let updated = get_rule(line);
 	// println!("{}", updated);
@@ -41,7 +43,9 @@ fn main() {
 	f.read_to_string(&mut contents)
 		.expect("Something went wrong reading file.");
 
-	println!("{}", &contents);
+	// println!("{}", &contents);
 
-	// let stuff = read_rules(CompleteStr(&contents))
+	let stuff = read_rules(CompleteStr(&contents));
+
+	println!("{:?}", stuff);
 }
