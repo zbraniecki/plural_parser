@@ -6,32 +6,57 @@ use std::fs::File;
 use std::io::prelude::*;
 
 // use nom::{alphanumeric1, space, types::CompleteStr};
-use nom::{types::CompleteStr};
+use nom::{types::CompleteStr, multispace0};
 
+// Consumes all the content leading up to language marker (only english)
 named!(eat_head<CompleteStr,CompleteStr>,
-	take_until_s!("supplemental\": {")
+	take_until_and_consume!("\"en\": {")
 );
 
-named!(read_rules<CompleteStr,CompleteStr>,
+// Consumes until not whitespace (allows for no whitespace)
+named!(white<CompleteStr,CompleteStr>,
+	call!(multispace0)
+);
+
+// Consumes up to plural rule true name
+named!(name_queue<CompleteStr,CompleteStr>,
+	take_until_and_consume_s!("\"pluralRule-count-") 
+);
+
+// Consumes until next "
+named!(next_quote<CompleteStr,CompleteStr>,
+	take_until_and_consume_s!("\"")
+);
+
+// parses one full rule line
+named!(read_rule<CompleteStr,(CompleteStr, CompleteStr)>,
 	ws!(
 		do_parse!(
-			head: eat_head >>
-			(head)
+			white >>
+			name_queue >>
+			name: next_quote >>
+			next_quote >>
+			rule_text: next_quote >>
+			(name, rule_text)
 		)
-
 	)
 );
 
-// +---------- Old test code ----------+
-// fn get_rule(rule: String) -> String {
-// 	rule
-// }
+// consumes until next }
+named!(eat_rules<CompleteStr,CompleteStr>,
+	take_until_and_consume_s!("}")
+);
+
+// Extracts plural rule lines for one language
+named!(get_rules<CompleteStr,CompleteStr>,
+	do_parse!(
+		eat_head >>
+		all_rules : eat_rules >>
+		(all_rules)
+	)
+);
 
 fn main() {
-	// +---------- Old test code ----------+
-	// let line = "Grammar Rule".to_string();
-	// let updated = get_rule(line);
-	// println!("{}", updated);
 
 	let filename = "src/plural_en.rule".to_string();
 
@@ -43,9 +68,48 @@ fn main() {
 	f.read_to_string(&mut contents)
 		.expect("Something went wrong reading file.");
 
-	// println!("{}", &contents);
+	let desired_text = get_rules(CompleteStr(&contents));
 
-	let stuff = read_rules(CompleteStr(&contents));
+	let mut extracted_rules = (desired_text.unwrap().1).0;
 
-	println!("{:?}", stuff);
+	let mut list_of_rules = Vec::new();
+
+	// ===============================================
+	// <RECURSIVELY EXTRACT NAME:ARGS FROM PLURAL RULES>
+	loop {
+
+		let temp = CompleteStr(&extracted_rules);
+
+		let stuff = read_rule(temp);
+
+		let items = stuff.unwrap();
+
+		// =========================================
+		// <GET PLAIN STRINGS FROM RETURN TUPLE>
+		let rule_name = ((items.1).0).0;
+		let rule_syn = ((items.1).1).0;
+		// </GET PLAIN STRINGS FROM RETURN TUPLE>
+		// =========================================
+
+		println!("\nExtracted:\n================\n\"{}\" :: \"{}\"", rule_name, rule_syn);
+
+		list_of_rules.push([rule_name, rule_syn]);
+
+		extracted_rules = &items.0;		
+
+		if extracted_rules == "" {
+			break
+		}
+	}
+	// </RECURSIVELY EXTRACT NAME:ARGS FROM PLURAL RULES>
+	// ===============================================
+
+	// ===============================================
+	// <PRINT ALL THE RULE NAME:ARG PAIRS>
+	println!("\nRULES:\n================");
+	for x in list_of_rules {
+		println!("{:?}", x);
+	}
+	// <PRINT ALL THE RULE NAME:ARG PAIRS>
+	// ===============================================
 }
