@@ -23,9 +23,21 @@ named!(name_queue<CompleteStr,CompleteStr>,
 	take_until_and_consume_s!("\"pluralRule-count-") 
 );
 
+named!(next_aroba<CompleteStr,CompleteStr>,
+	take_until_and_consume_s!("@")
+);
+
 // Consumes until next "
 named!(next_quote<CompleteStr,CompleteStr>,
 	take_until_and_consume_s!("\"")
+);
+
+named!(next_aroba_or_quote<CompleteStr,CompleteStr>,
+	do_parse!(
+		end : next_aroba >>
+		next_quote >>
+		(end)
+	)
 );
 
 // parses one full rule line
@@ -36,7 +48,7 @@ named!(read_rule<CompleteStr,(CompleteStr, CompleteStr)>,
 			name_queue >>
 			name: next_quote >>
 			next_quote >>
-			rule_text: next_quote >>
+			rule_text: next_aroba_or_quote >>
 			(name, rule_text)
 		)
 	)
@@ -91,7 +103,9 @@ fn main() {
 		// </GET PLAIN STRINGS FROM RETURN TUPLE>
 		// =========================================
 
-		println!("\nExtracted:\n================\n\"{}\" :: \"{}\"", rule_name, rule_syn);
+		println!("\nLeftovers:\n================\n\"{:?}\"", items.0);
+
+		println!("\nExtracted:\n================\n\"{:?}\" :: \"{:?}\"", rule_name, rule_syn);
 
 		list_of_rules.push([rule_name, rule_syn]);
 
