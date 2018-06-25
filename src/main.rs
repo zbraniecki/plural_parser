@@ -72,12 +72,12 @@ named!(get_rules<CompleteStr,CompleteStr>,
 // <RULE PARSING>
 
 // Captures integer values
-named!(value<CompleteStr,String>,
-	map!(recognize!(many1!(digit1)), |recast| recast.to_string() )
+named!(value<CompleteStr, Value>,
+	map!(recognize!(many1!(digit1)), |recast| Value { val: recast.to_string() } )
 );
 
 // Captures the last half of the range
-named!(range_counterpart<CompleteStr,(String, String)>,
+named!(range_counterpart<CompleteStr,(String, Value)>,
 	do_parse!(
 		t : map!(tag!(".."), |recast| recast.to_string() ) >>
 		n : value >>
@@ -86,7 +86,7 @@ named!(range_counterpart<CompleteStr,(String, String)>,
 );
 
 // Captures a numeric range (including singular values)
-named!(range<CompleteStr,String>,
+named!(range<CompleteStr,Range>,
 	map!(
 		recognize!(
 			permutation!(
@@ -94,11 +94,11 @@ named!(range<CompleteStr,String>,
 				opt!(range_counterpart)
 			)
 		)
-	, |recast| recast.to_string())
+	, |recast| Range { range: recast.to_string() } )
 );
 
 // Removes comma from desired input
-named!(interm_range<CompleteStr,String>,
+named!(interm_range<CompleteStr,Range>,
 	do_parse!(
 		r : range >>
 		opt!(tag!(",")) >>
@@ -106,14 +106,16 @@ named!(interm_range<CompleteStr,String>,
 	)
 );
 
-named!(range_list<CompleteStr,Vec<String> >,
-   fold_many1!( interm_range, Vec::new(), |mut acc: Vec<_>, item| {
-     acc.push(item);
-     acc
- }));
+named!(range_list<CompleteStr, RangeList >,
+   map!(
+		fold_many1!( interm_range, Vec::new(), |mut acc: Vec<_>, item| {
+		acc.push(item);
+		acc
+		}), |recast| RangeList { range_list : recast} )
+);
 
 // Captures in operators
-named!(in_operator<CompleteStr,String>,
+named!(in_operator<CompleteStr,Operator>,
 	map!(
 		alt_complete!(
 			tag!("=") |
@@ -125,11 +127,11 @@ named!(in_operator<CompleteStr,String>,
 				)
 			)
 		)
-	, |recast| recast.to_string())
+	, |recast| Operator { operator : recast.to_string() } )
 );
 
 // Capture is operators
-named!(is_operator<CompleteStr,String>,
+named!(is_operator<CompleteStr,Operator>,
 	map!(
 		recognize!(
 			permutation!(
@@ -137,43 +139,51 @@ named!(is_operator<CompleteStr,String>,
 				opt!(tag!("not"))
 			)
 		)
-	, |recast| recast.to_string())
+	, |recast| Operator { operator: recast.to_string() } ) 
 );
 
 // Captures an operand
-named!(operand<CompleteStr,String>,
-	map!(alt_complete!(tag!("n") | tag!("i") | tag!("v") | tag!("w") | tag!("f") | tag!("t") ), |recast| recast.to_string())
+named!(operand<CompleteStr,Operand>,
+	map!(
+		alt_complete!(
+			tag!("n") | 
+			tag!("i") | 
+			tag!("v") | 
+			tag!("w") | 
+			tag!("f") | 
+			tag!("t") ), 
+		|recast| Operand { operand : recast.to_string() } )
 );
 
-named!(mod_expression<CompleteStr,ModExp>,
+named!(mod_expression<CompleteStr,Modulo>,
 	do_parse!(
 		t: alt_complete!( tag!("mod") | tag!("%") ) >>
 		v : value >>
-		(ModExp {
-			modulo: t.to_string() ,
+		(Modulo {
+			modulus: t.to_string() ,
 			value : v
 		})
 	)
 );
 
 // Captures an expression
-named!(expression<CompleteStr,Exp>,
+named!(expression<CompleteStr,Expression>,
 	do_parse!(
 		rand: operand >>
 		mod_expr: opt!(mod_expression) >>
-		(Exp { 
+		(Expression { 
 			operand: rand,
 			modulo_operator: mod_expr
 		})
 	)
 );
 
-named!(in_relation<CompleteStr,Rel >,
+named!(in_relation<CompleteStr, Relation >,
 	do_parse!(
 		first_o : expression >>
 		math_o : in_operator >>
 		nums : range_list >>
-		(Rel{
+		(Relation{
 			expression: first_o, 
 			operator: math_o, 
 			range_list: nums
@@ -181,12 +191,12 @@ named!(in_relation<CompleteStr,Rel >,
 	)
 );
 
-named!(is_relation<CompleteStr,Rel >,
+named!(is_relation<CompleteStr,Relation >,
 	do_parse!(
 		first_o : expression >>
 		math_o : is_operator >>
 		nums : range_list >>
-		( Rel {
+		( Relation {
 			expression: first_o, 
 			operator: math_o, 
 			range_list: nums
@@ -196,63 +206,51 @@ named!(is_relation<CompleteStr,Rel >,
 
 
 // Extracts plural rule lines for one language
-named!(relation<CompleteStr, Rel >,
+named!(relation<CompleteStr, Relation >,
 	alt_complete!(is_relation | in_relation)
 );
 
-named!(and_relation<CompleteStr,AndRel >,
+named!(and_relation<CompleteStr,Relation >,
 	do_parse!(
-		t: tag!("and") >>
+		opt!(tag!("and")) >>
 		r: relation >>
-		(AndRel{
-			and_rel_a: t.to_string(),
-			and_rel_b: r
-		})
+		(r)
 	)
 );
 
-named!(and_condition<CompleteStr,AndCond >,
+named!(and_condition<CompleteStr,AndCondition >,
 	do_parse!(
-		a : relation >>
-
-		b : fold_many0!( and_relation, Vec::new(), |mut acc: Vec<_>, item| {
+		a : fold_many0!( and_relation, Vec::new(), |mut acc: Vec<_>, item| {
 		     acc.push(item);
 		     acc
 		 }) >>
-		(AndCond{
-			and_condition_a: a, 
-			and_condition_b: b
+		(AndCondition{
+			relations: a
 		})
 	)
 );
 
-named!(interm_condition<CompleteStr, OrCond >,
+named!(interm_condition<CompleteStr, AndCondition >,
 	do_parse!(
-		t: tag!("or") >>
+		opt!(tag!("or")) >>
 		s: and_condition >>
-		(OrCond {
-			or_condition_a: t.to_string(),
-			or_condition_b: s
-		})
+		(s)
 	)
 );
 
-named!(condition<CompleteStr, Cond >,
+named!(condition<CompleteStr, Condition >,
 	do_parse!(
-		a : and_condition >>
-
-		b : fold_many0!( interm_condition, Vec::new(), |mut acc: Vec<_>, item| {
+		a : fold_many0!( interm_condition, Vec::new(), |mut acc: Vec<_>, item| {
 		     acc.push(item);
 		     acc
 		 }) >>
-		(Cond{
-			condition_a: a, 
-			condition_b: b
+		(Condition{
+			conditions: a
 		})
 	)
 );
 
-named!(parse_rule<CompleteStr,Cond >,
+named!(parse_rule<CompleteStr,Condition >,
 	call!(condition)
 );
 

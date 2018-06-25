@@ -1,44 +1,61 @@
 // Structs for CLDR rules
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Cond {
-	pub condition_a: AndCond,
-	pub condition_b: Vec<OrCond>
+pub struct Condition {
+    pub conditions: Vec<AndCondition>
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct OrCond {
-	pub or_condition_a: String,
-	pub or_condition_b: AndCond
+pub struct AndCondition {
+	pub relations: Vec<Relation>
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct AndCond {
-	pub and_condition_a: Rel,
-	pub and_condition_b: Vec<AndRel>
+pub struct Relation {
+	pub expression: Expression,
+	pub operator: Operator,
+	pub range_list: RangeList
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct AndRel {
-	pub and_rel_a: String,
-	pub and_rel_b: Rel
+pub struct Operator {
+	pub operator: String
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Rel {
-	pub expression: Exp,
-	pub operator: String,
-	pub range_list: Vec<String>
+pub struct Expression {
+	pub operand: Operand,
+	pub modulo_operator: Option<Modulo>
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Exp {
-	pub operand: String,
-	pub modulo_operator: Option<ModExp>
+pub struct Modulo {
+	pub modulus: String,
+	pub value: Value
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct ModExp {
-	pub modulo: String,
-	pub value: String
+pub struct Operand {
+	pub operand: String
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct RangeList {
+	pub range_list : Vec<Range>
+}
+
+// #[derive(Debug, Clone, PartialEq)]
+// pub struct Range {
+// 	pub lower_val: Value,
+// 	pub upper_val: Option<Value>
+// }
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Range {
+	pub range: String
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Value {
+	pub val: String
 }
