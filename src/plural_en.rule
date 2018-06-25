@@ -9,7 +9,7 @@
 			"en": {
 				"pluralRule-count-one": "i = 1 and v = 0 @integer 1",
 				"pluralRule-count-one": "i = 1 and v = 0 or f = 2 @integer 1",
-				"pluralRule-count-one": "i = 1 or v = 0 @integer 1",
+				"pluralRule-count-one": "i = 1..5 or v = 0 @integer 1",
 
 
 

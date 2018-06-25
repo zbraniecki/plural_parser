@@ -1,10 +1,14 @@
 #[macro_use]
 extern crate nom;
 
+mod ast;
+
 // use std::io;
 use std::fs::File;
 use std::io::prelude::*;
 use nom::{digit1, multispace0, types::CompleteStr};
+
+use ast::*;
 
 //==================
 // <RULE EXTRACTION>
@@ -68,31 +72,33 @@ named!(get_rules<CompleteStr,CompleteStr>,
 // <RULE PARSING>
 
 // Captures integer values
-named!(value<CompleteStr,CompleteStr>,
-	recognize!(many1!(digit1))
+named!(value<CompleteStr,String>,
+	map!(recognize!(many1!(digit1)), |recast| recast.to_string() )
 );
 
 // Captures the last half of the range
-named!(range_counterpart<CompleteStr,(CompleteStr, CompleteStr)>,
+named!(range_counterpart<CompleteStr,(String, String)>,
 	do_parse!(
-		t : tag!("..") >>
+		t : map!(tag!(".."), |recast| recast.to_string() ) >>
 		n : value >>
 		(t,n)
 	)
 );
 
 // Captures a numeric range (including singular values)
-named!(range<CompleteStr,CompleteStr>,
-	recognize!(
-		permutation!(
-			value,
-			opt!(range_counterpart)
+named!(range<CompleteStr,String>,
+	map!(
+		recognize!(
+			permutation!(
+				value,
+				opt!(range_counterpart)
+			)
 		)
-	)
+	, |recast| recast.to_string())
 );
 
 // Removes comma from desired input
-named!(interm_range<CompleteStr,CompleteStr>,
+named!(interm_range<CompleteStr,String>,
 	do_parse!(
 		r : range >>
 		opt!(tag!(",")) >>
@@ -100,107 +106,138 @@ named!(interm_range<CompleteStr,CompleteStr>,
 	)
 );
 
-named!(range_list<CompleteStr,Vec<CompleteStr> >,
+named!(range_list<CompleteStr,Vec<String> >,
    fold_many1!( interm_range, Vec::new(), |mut acc: Vec<_>, item| {
      acc.push(item);
      acc
  }));
 
 // Captures in operators
-named!(in_operator<CompleteStr,CompleteStr>,
-	alt_complete!(
-		tag!("=") |
-		tag!("!=") |
-		recognize!(
-			permutation!(
-				opt!(tag!("not")) ,
-				alt_complete!(tag!("within") | tag!("in"))
-			)
-		)
-	)
-);
-
-// Capture is operators
-named!(is_operator<CompleteStr,CompleteStr>,
-	recognize!(
-		permutation!(
-			tag!("is") ,
-			opt!(tag!("not"))
-		)
-	)
-);
-
-// Captures an operand
-named!(operand<CompleteStr,CompleteStr>,
-	alt_complete!(tag!("n") | tag!("i") | tag!("v") | tag!("w") | tag!("f") | tag!("t") )
-);
-
-// Captures an expression
-named!(expression<CompleteStr,CompleteStr>,
-	recognize!(
-		permutation!(
-			operand ,
-			opt!(
+named!(in_operator<CompleteStr,String>,
+	map!(
+		alt_complete!(
+			tag!("=") |
+			tag!("!=") |
+			recognize!(
 				permutation!(
-					alt_complete!( tag!("mod") | tag!("%") ) , 
-					value
+					opt!(tag!("not")) ,
+					alt_complete!(tag!("within") | tag!("in"))
 				)
 			)
 		)
+	, |recast| recast.to_string())
+);
+
+// Capture is operators
+named!(is_operator<CompleteStr,String>,
+	map!(
+		recognize!(
+			permutation!(
+				tag!("is") ,
+				opt!(tag!("not"))
+			)
+		)
+	, |recast| recast.to_string())
+);
+
+// Captures an operand
+named!(operand<CompleteStr,String>,
+	map!(alt_complete!(tag!("n") | tag!("i") | tag!("v") | tag!("w") | tag!("f") | tag!("t") ), |recast| recast.to_string())
+);
+
+named!(mod_expression<CompleteStr,ModExp>,
+	do_parse!(
+		t: alt_complete!( tag!("mod") | tag!("%") ) >>
+		v : value >>
+		(ModExp {
+			modulo: t.to_string() ,
+			value : v
+		})
 	)
 );
 
-named!(in_relation<CompleteStr,(CompleteStr, CompleteStr, Vec<CompleteStr>) >,
+// Captures an expression
+named!(expression<CompleteStr,Exp>,
+	do_parse!(
+		rand: operand >>
+		mod_expr: opt!(mod_expression) >>
+		(Exp { 
+			operand: rand,
+			modulo_operator: mod_expr
+		})
+	)
+);
+
+named!(in_relation<CompleteStr,Rel >,
 	do_parse!(
 		first_o : expression >>
 		math_o : in_operator >>
 		nums : range_list >>
-		(first_o, math_o, nums)
+		(Rel{
+			expression: first_o, 
+			operator: math_o, 
+			range_list: nums
+		})
 	)
 );
 
-named!(is_relation<CompleteStr,(CompleteStr, CompleteStr, Vec<CompleteStr>) >,
+named!(is_relation<CompleteStr,Rel >,
 	do_parse!(
 		first_o : expression >>
 		math_o : is_operator >>
 		nums : range_list >>
-		(first_o, math_o, nums)
+		( Rel {
+			expression: first_o, 
+			operator: math_o, 
+			range_list: nums
+		})
 	)
 );
 
 
 // Extracts plural rule lines for one language
-named!(relation<CompleteStr,(CompleteStr, CompleteStr, Vec<CompleteStr>) >,
+named!(relation<CompleteStr, Rel >,
 	alt_complete!(is_relation | in_relation)
 );
 
-named!(interm_and_condition<CompleteStr,(CompleteStr, (CompleteStr, CompleteStr, Vec<CompleteStr>))>,
-	permutation!(
-		tag!("and") ,
-		relation
+named!(and_relation<CompleteStr,AndRel >,
+	do_parse!(
+		t: tag!("and") >>
+		r: relation >>
+		(AndRel{
+			and_rel_a: t.to_string(),
+			and_rel_b: r
+		})
 	)
 );
 
-named!(and_condition<CompleteStr,((CompleteStr, CompleteStr, Vec<CompleteStr>), Vec<(CompleteStr, (CompleteStr, CompleteStr, Vec<CompleteStr>))>) >,
+named!(and_condition<CompleteStr,AndCond >,
 	do_parse!(
 		a : relation >>
 
-		b : fold_many0!( interm_and_condition, Vec::new(), |mut acc: Vec<_>, item| {
+		b : fold_many0!( and_relation, Vec::new(), |mut acc: Vec<_>, item| {
 		     acc.push(item);
 		     acc
 		 }) >>
-		(a, b)
+		(AndCond{
+			and_condition_a: a, 
+			and_condition_b: b
+		})
 	)
 );
 
-named!(interm_condition<CompleteStr, (CompleteStr, ((CompleteStr, CompleteStr, Vec<CompleteStr>), Vec<(CompleteStr, (CompleteStr, CompleteStr, Vec<CompleteStr>))>)) >,
-	permutation!(
-		tag!("or") ,
-		and_condition
+named!(interm_condition<CompleteStr, OrCond >,
+	do_parse!(
+		t: tag!("or") >>
+		s: and_condition >>
+		(OrCond {
+			or_condition_a: t.to_string(),
+			or_condition_b: s
+		})
 	)
 );
 
-named!(condition<CompleteStr, (((CompleteStr, CompleteStr, Vec<CompleteStr>), Vec<(CompleteStr, (CompleteStr, CompleteStr, Vec<CompleteStr>))>), Vec<(CompleteStr, ((CompleteStr, CompleteStr, Vec<CompleteStr>), Vec<(CompleteStr, (CompleteStr, CompleteStr, Vec<CompleteStr>))>))>) >,
+named!(condition<CompleteStr, Cond >,
 	do_parse!(
 		a : and_condition >>
 
@@ -208,11 +245,14 @@ named!(condition<CompleteStr, (((CompleteStr, CompleteStr, Vec<CompleteStr>), Ve
 		     acc.push(item);
 		     acc
 		 }) >>
-		(a, b)
+		(Cond{
+			condition_a: a, 
+			condition_b: b
+		})
 	)
 );
 
-named!(parse_rule<CompleteStr,(((CompleteStr, CompleteStr, Vec<CompleteStr>), Vec<(CompleteStr, (CompleteStr, CompleteStr, Vec<CompleteStr>))>), Vec<(CompleteStr, ((CompleteStr, CompleteStr, Vec<CompleteStr>), Vec<(CompleteStr, (CompleteStr, CompleteStr, Vec<CompleteStr>))>))>) >,
+named!(parse_rule<CompleteStr,Cond >,
 	call!(condition)
 );
 
