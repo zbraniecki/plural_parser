@@ -4,9 +4,12 @@ extern crate nom;
 mod ast;
 
 // use std::io;
+use nom::{digit1, multispace0, types::CompleteStr};
 use std::fs::File;
 use std::io::prelude::*;
-use nom::{digit1, multispace0, types::CompleteStr};
+
+use std::isize;
+use std::str::FromStr;
 
 use ast::*;
 
@@ -73,34 +76,29 @@ named!(get_rules<CompleteStr,CompleteStr>,
 
 // Captures integer values
 named!(value<CompleteStr, Value>,
-	map!(recognize!(many1!(digit1)), |recast| Value { val: recast.to_string() } )
+	map!(recognize!(many1!(digit1)), |recast| Value { val : isize::from_str(&recast.to_string()).unwrap() } )
 );
 
 // Captures the last half of the range
-named!(range_counterpart<CompleteStr,(String, Value)>,
+named!(range<CompleteStr,Range>,
 	do_parse!(
-		t : map!(tag!(".."), |recast| recast.to_string() ) >>
+		o : value >>
+		map!(tag!(".."), |recast| recast.to_string() ) >>
 		n : value >>
-		(t,n)
+		(Range {
+			lower_val: o,
+			upper_val : n
+		})
 	)
 );
 
 // Captures a numeric range (including singular values)
-named!(range<CompleteStr,Range>,
-	map!(
-		recognize!(
-			permutation!(
-				value,
-				opt!(range_counterpart)
-			)
-		)
-	, |recast| Range { range: recast.to_string() } )
-);
-
-// Removes comma from desired input
-named!(interm_range<CompleteStr,Range>,
+named!(range_list_item<CompleteStr,RangeListItem>,
 	do_parse!(
-		r : range >>
+		r : alt!(
+			map!(range, |recast| RangeListItem::Range(recast) ) |
+			map!(value, |recast| RangeListItem::Value(recast) )
+		) >>
 		opt!(tag!(",")) >>
 		(r)
 	)
@@ -108,7 +106,7 @@ named!(interm_range<CompleteStr,Range>,
 
 named!(range_list<CompleteStr, RangeList >,
    map!(
-		fold_many1!( interm_range, Vec::new(), |mut acc: Vec<_>, item| {
+		fold_many1!( range_list_item, Vec::new(), |mut acc: Vec<_>, item| {
 		acc.push(item);
 		acc
 		}), |recast| RangeList { range_list : recast} )
@@ -139,7 +137,7 @@ named!(is_operator<CompleteStr,Operator>,
 				opt!(tag!("not"))
 			)
 		)
-	, |recast| Operator { operator: recast.to_string() } ) 
+	, |recast| Operator { operator: recast.to_string() } )
 );
 
 // Captures an operand
@@ -171,7 +169,7 @@ named!(expression<CompleteStr,Expression>,
 	do_parse!(
 		rand: operand >>
 		mod_expr: opt!(mod_expression) >>
-		(Expression { 
+		(Expression {
 			operand: rand,
 			modulo_operator: mod_expr
 		})
@@ -184,8 +182,8 @@ named!(in_relation<CompleteStr, Relation >,
 		math_o : in_operator >>
 		nums : range_list >>
 		(Relation{
-			expression: first_o, 
-			operator: math_o, 
+			expression: first_o,
+			operator: math_o,
 			range_list: nums
 		})
 	)
@@ -197,13 +195,12 @@ named!(is_relation<CompleteStr,Relation >,
 		math_o : is_operator >>
 		nums : range_list >>
 		( Relation {
-			expression: first_o, 
-			operator: math_o, 
+			expression: first_o,
+			operator: math_o,
 			range_list: nums
 		})
 	)
 );
-
 
 // Extracts plural rule lines for one language
 named!(relation<CompleteStr, Relation >,
