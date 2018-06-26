@@ -17,9 +17,21 @@ pub struct Relation {
     pub range_list: RangeList,
 }
 
+// #[derive(Debug, Clone, PartialEq)]
+// pub struct Operator {
+//     pub operator: String,
+// }
+
 #[derive(Debug, Clone, PartialEq)]
-pub struct Operator {
-    pub operator: String,
+pub enum Operator {
+    In,
+    NotIn,
+    Within,
+    NotWithin,
+    Is,
+    IsNot,
+    EQ,
+    NotEQ
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -36,7 +48,7 @@ pub struct Modulo {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Operand {
-    pub operand: String,
+    pub operand: char,
 }
 
 #[derive(Debug, Clone, PartialEq)]

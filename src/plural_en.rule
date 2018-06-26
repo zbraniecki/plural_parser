@@ -8,7 +8,12 @@
 		"plurals-type-cardinal": {
 			"en": {
 				"pluralRule-count-one": "i = 1 and v = 0 @integer 1",
-				"pluralRule-count-one": "i = 1..5, 7, 10..12 @integer 1",
+				"pluralRule-count-one": "i != 1..5, 7, 10..12 @integer 1",
+
+
+				"pluralRule-count-one": "i in 1 and v is not 0 @integer 1",
+
+				"pluralRule-count-one": "i within 1 and v not within 0 @integer 1",
 
 
 

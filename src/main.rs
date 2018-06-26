@@ -112,32 +112,90 @@ named!(range_list<CompleteStr, RangeList >,
 		}), |recast| RangeList { range_list : recast} )
 );
 
+named!(within_operator<CompleteStr,Operator>,
+	do_parse!(
+		tag!("within") >>
+		(Operator::Within)
+	)
+);
+
+named!(not_within_operator<CompleteStr,Operator>,
+	do_parse!(
+		tag!("not") >>
+		tag!("within") >>
+		(Operator::NotWithin)
+	)
+);
+
 // Captures in operators
+named!(check_within_operator<CompleteStr,Operator>,
+	alt!(within_operator | not_within_operator)
+);
+
 named!(in_operator<CompleteStr,Operator>,
-	map!(
-		alt_complete!(
-			tag!("=") |
-			tag!("!=") |
-			recognize!(
-				permutation!(
-					opt!(tag!("not")) ,
-					alt_complete!(tag!("within") | tag!("in"))
-				)
-			)
-		)
-	, |recast| Operator { operator : recast.to_string() } )
+	do_parse!(
+		tag!("in") >>
+		(Operator::In)
+	)
+);
+
+named!(not_in_operator<CompleteStr,Operator>,
+	do_parse!(
+		do_parse!(
+				a: tag!("not") >>
+				tag!("in") >>
+				(a)
+		) >>
+		(Operator::NotIn)
+	)
+);
+
+// Captures in operators
+named!(check_in_operator<CompleteStr,Operator>,
+	alt!(in_operator | not_in_operator)
 );
 
 // Capture is operators
 named!(is_operator<CompleteStr,Operator>,
-	map!(
-		recognize!(
-			permutation!(
-				tag!("is") ,
-				opt!(tag!("not"))
-			)
-		)
-	, |recast| Operator { operator: recast.to_string() } )
+	do_parse!(
+		tag!("is") >>
+		(Operator::Is)
+	)
+);
+
+
+// Capture is operators
+named!(not_is_operator<CompleteStr,Operator>,
+	do_parse!(
+		tag!("is") >>
+		tag!("not") >>
+		(Operator::IsNot)
+	)
+);
+
+// Capture is operators
+named!(check_is_operator<CompleteStr,Operator>,
+	alt!(not_is_operator | is_operator)
+);
+
+
+named!(eq_operator<CompleteStr,Operator>,
+	do_parse!(
+		tag!("=")>>
+		(Operator::EQ)
+	)
+);
+
+named!(not_eq_operator<CompleteStr,Operator>,
+	do_parse!(
+		tag!("!=") >>
+		(Operator::NotEQ)
+	)
+);
+
+// Captures in operators
+named!(check_eq_operator<CompleteStr,Operator>,
+	alt!(eq_operator | not_eq_operator)
 );
 
 // Captures an operand
@@ -150,7 +208,7 @@ named!(operand<CompleteStr,Operand>,
 			tag!("w") | 
 			tag!("f") | 
 			tag!("t") ), 
-		|recast| Operand { operand : recast.to_string() } )
+		|recast| Operand { operand : char::from_str(&recast).unwrap() } )
 );
 
 named!(mod_expression<CompleteStr,Modulo>,
@@ -176,10 +234,23 @@ named!(expression<CompleteStr,Expression>,
 	)
 );
 
+named!(within_relation<CompleteStr, Relation >,
+	do_parse!(
+		first_o : expression >>
+		math_o : check_within_operator >>
+		nums : range_list >>
+		(Relation{
+			expression: first_o,
+			operator: math_o,
+			range_list: nums
+		})
+	)
+);
+
 named!(in_relation<CompleteStr, Relation >,
 	do_parse!(
 		first_o : expression >>
-		math_o : in_operator >>
+		math_o : check_in_operator >>
 		nums : range_list >>
 		(Relation{
 			expression: first_o,
@@ -192,9 +263,22 @@ named!(in_relation<CompleteStr, Relation >,
 named!(is_relation<CompleteStr,Relation >,
 	do_parse!(
 		first_o : expression >>
-		math_o : is_operator >>
-		nums : range_list >>
+		math_o : check_is_operator >>
+		nums : value >>
 		( Relation {
+			expression: first_o,
+			operator: math_o,
+			range_list: RangeList { range_list: vec![RangeListItem::Value(nums)] }
+		})
+	)
+);
+
+named!(eq_relation<CompleteStr, Relation >,
+	do_parse!(
+		first_o : expression >>
+		math_o : check_eq_operator >>
+		nums : range_list >>
+		(Relation{
 			expression: first_o,
 			operator: math_o,
 			range_list: nums
@@ -202,9 +286,11 @@ named!(is_relation<CompleteStr,Relation >,
 	)
 );
 
+
 // Extracts plural rule lines for one language
 named!(relation<CompleteStr, Relation >,
-	alt_complete!(is_relation | in_relation)
+	alt_complete!(within_relation | in_relation | is_relation |
+		 eq_relation)
 );
 
 named!(and_relation<CompleteStr,Relation >,
