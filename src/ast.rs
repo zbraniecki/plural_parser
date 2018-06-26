@@ -1,14 +1,10 @@
 // Structs for CLDR rules
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Condition {
-    pub conditions: Vec<AndCondition>,
-}
+pub struct Condition(pub Vec<AndCondition>);
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct AndCondition {
-    pub relations: Vec<Relation>,
-}
+pub struct AndCondition(pub Vec<Relation>);
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Relation {
@@ -16,11 +12,6 @@ pub struct Relation {
     pub operator: Operator,
     pub range_list: RangeList,
 }
-
-// #[derive(Debug, Clone, PartialEq)]
-// pub struct Operator {
-//     pub operator: String,
-// }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Operator {
@@ -31,33 +22,29 @@ pub enum Operator {
     Is,
     IsNot,
     EQ,
-    NotEQ
+    NotEQ,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Expression {
     pub operand: Operand,
-    pub modulo_operator: Option<Modulo>,
+    pub modulus: Option<Modulo>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Modulo {
-    pub modulus: String,
+    pub modulo_operator: String,
     pub value: Value,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Operand {
-    pub operand: char,
-}
+pub struct Operand(pub char);
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct RangeList {
-    pub range_list: Vec<RangeListItem>,
-}
+pub struct RangeList(pub Vec<RangeListItem>);
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum RangeListItem{
+pub enum RangeListItem {
     Range(Range),
     Value(Value),
 }
@@ -65,10 +52,8 @@ pub enum RangeListItem{
 #[derive(Debug, Clone, PartialEq)]
 pub struct Range {
     pub lower_val: Value,
-    pub upper_val: Value
+    pub upper_val: Value,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Value {
-    pub val: isize,
-}
+pub struct Value(pub usize);

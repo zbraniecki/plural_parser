@@ -13,7 +13,7 @@
 
 				"pluralRule-count-one": "i in 1 and v is not 0 @integer 1",
 
-				"pluralRule-count-one": "i within 1 and v not within 0 @integer 1",
+				"pluralRule-count-one": "i % 10 within 1 and v mod 100 not within 0 @integer 1",
 
 
 
