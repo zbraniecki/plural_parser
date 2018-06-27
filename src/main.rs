@@ -21,8 +21,8 @@ pub struct Range {
 
 #[derive(Debug)]
 pub enum RangeListItem {
-  Value(Value),
-  Range(Range),
+    Value(Value),
+    Range(Range),
 }
 
 #[derive(Debug)]
@@ -56,15 +56,27 @@ named!(range_list<CompleteStr, RangeList>, do_parse!(
 ));
 
 fn main() {
-    let _stuff = range_list(CompleteStr("5..6 , 4..0"));
-    // println!("\nInfo:\n{:#?}", stuff);
+    // Here's a good range_list parser at work:
+    let stuff = range_list(CompleteStr("5..6 , 4..0"));
+    println!("\nInfo:\n{:#?}", stuff);
 
+    // Here's a cardinal plural parser:
+    println!("English cardinal rules:");
+    let u = parser::parse_plurals_resource("plurals.json").unwrap();
 
-	let u = parser::parse_plurals_resource("plurals.json").unwrap();
-
-    let en_rules = u.supplemental.rules.get("en").unwrap();
+    let cardinal_rules = u.supplemental.plurals_type_cardinal.unwrap();
+    let en_rules = cardinal_rules.get("en").unwrap();
     let en_rule_one = en_rules.get("pluralRule-count-one").unwrap();
 
     println!("{:#?}", en_rules);
-    println!("{:#?}", en_rule_one);
+    println!("{:#?}\n\n", en_rule_one);
+
+    println!("French ordinal rules:");
+    let o = parser::parse_plurals_resource("ordinals.json").unwrap();
+
+    let ordinal_rules = o.supplemental.plurals_type_ordinal.unwrap();
+    let fr_rules = ordinal_rules.get("fr").unwrap();
+    let fr_rule_one = fr_rules.get("pluralRule-count-one").unwrap();
+    println!("{:#?}", fr_rules);
+    println!("{:#?}\n\n", fr_rule_one);
 }

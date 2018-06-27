@@ -8,7 +8,7 @@ use std::path::Path;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Resource {
-    pub supplemental: Supplemental 
+    pub supplemental: Supplemental,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -25,7 +25,9 @@ pub struct Version {
 pub struct Supplemental {
     pub version: Version,
     #[serde(rename = "plurals-type-cardinal")]
-    pub rules: HashMap<String, HashMap<String, String>>
+    pub plurals_type_cardinal: Option<HashMap<String, HashMap<String, String>>>,
+    #[serde(rename = "plurals-type-ordinal")]
+    pub plurals_type_ordinal: Option<HashMap<String, HashMap<String, String>>>,
 }
 
 pub fn parse_plurals_resource<P: AsRef<Path>>(path: P) -> Result<Resource, Box<Error>> {
